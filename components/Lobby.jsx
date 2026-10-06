@@ -1,12 +1,11 @@
 "use client";
 import { startTransition, useOptimistic } from "react";
 import { useRoom } from "@/context/RoomContext";
-import { CHARACTERS } from "@/lib/constants";
+import { CHARACTERS, GAMES } from "@/lib/constants";
 import Furniture from "./Furniture";
 
 export default function Lobby() {
   const { me, room, send } = useRoom();
-  // useOptimistic: show my new pick instantly, the server confirms a moment later
   const [mine, setMine] = useOptimistic(room.players[me].character);
   const owner = (id) => Object.values(room.players).find((p) => p.character === id)?.id;
 
@@ -49,6 +48,19 @@ export default function Lobby() {
         </button>
         <span className="font-bold text-muted">{readyCount} of {active.length} ready</span>
       </div>
+
+
+            {/* DEV ONLY: only visible with "npm run dev" */}
+      {process.env.NODE_ENV !== "production" && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-dashed border-line p-3">
+          <span className="text-sm font-bold text-muted">Test one game:</span>
+          {GAMES.map((g) => (
+            <button key={g.id} onClick={() => send({ type: "test", game: g.id })} className="btn-line min-h-8 px-3 text-sm">
+              {g.title}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

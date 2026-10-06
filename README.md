@@ -3,7 +3,7 @@
 - You don't need to make an account. You can play on desktop or phone, but I recommend desktop for the best experience.
 - It is foccused on multiplayer, but you can't play on the same device with multiple people. (You need keyboard buttons)
 
-## What you need
+## What you need to run it on your own desktop
 
 - [Node.js](https://nodejs.org) version **20.9 or higher**
 
