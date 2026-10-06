@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRoom } from "@/context/RoomContext";
 
-// Seconds until `endsAt` (server time), updated 5 times a second.
 export function useTimeLeft(endsAt) {
   const { now } = useRoom();
   const [, rerender] = useState(0);

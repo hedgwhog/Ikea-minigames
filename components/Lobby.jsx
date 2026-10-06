@@ -16,6 +16,9 @@ export default function Lobby() {
       await send({ type: "pick", character: id });
     });
 
+  const myReady = room.players[me].ready;
+  const active = Object.values(room.players).filter((p) => !p.idle);
+  const readyCount = active.filter((p) => p.ready).length;
   return (
     <div className="space-y-6">
       <div>
@@ -40,7 +43,12 @@ export default function Lobby() {
           );
         })}
       </div>
-      <button onClick={() => send({ type: "start" })} className="btn-blue">Start the games</button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={() => send({ type: "ready" })} className={myReady ? "btn-line" : "btn-blue"}>
+          {myReady ? "Not ready" : "Ready"}
+        </button>
+        <span className="font-bold text-muted">{readyCount} of {active.length} ready</span>
+      </div>
     </div>
   );
 }
