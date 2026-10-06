@@ -43,7 +43,11 @@ export default function Room() {
           <span className="tag">Room {code}</span>
           <RoomButtons code={code} me={me} />
         </div>
-        {notice && <p className="rounded-full bg-ink px-4 py-2 text-center text-sm font-bold text-page">{notice}</p>}
+        {room.players[me].idle && (
+          <p className="rounded-xl bg-yellow p-3 text-center font-bold text-[#111]">
+            You're away. Move your mouse or press a key to come back.
+          </p>
+        )}
         <section className="card min-w-0">
           {room.phase === "lobby" && <Lobby />}
           {Game && (
@@ -73,9 +77,16 @@ function Scoreboard() {
     <aside className="card h-fit space-y-2">
       <h2 className="font-black">Points</h2>
       {board.map((p) => (
-        <div key={p.id} className={`flex items-center gap-2 rounded-lg p-1.5 ${p.id === me ? "bg-yellow text-[#111]" : ""}`}>
+        <div
+          key={p.id}
+          className={`flex items-center gap-2 rounded-lg p-1.5 ${p.id === me ? "bg-yellow text-[#111]" : ""} ${p.idle ? "opacity-40 grayscale" : ""}`}
+        >
           <Furniture id={p.character} className="h-8 w-8" />
-          <span className="flex-1 font-bold">{p.name}</span>
+          <span className="flex-1 font-bold">
+            {p.name}
+            {p.idle && <span className="ml-1 text-xs font-normal">(away)</span>}
+          </span>
+          {p.ready && !p.idle && room.phase !== "playing" && <span className="font-black text-green">✓</span>}
           <span className="font-black">{room.scores[p.id]}</span>
         </div>
       ))}

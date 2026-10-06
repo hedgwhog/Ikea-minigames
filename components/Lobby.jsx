@@ -1,12 +1,11 @@
 "use client";
 import { startTransition, useOptimistic } from "react";
 import { useRoom } from "@/context/RoomContext";
-import { CHARACTERS } from "@/lib/constants";
+import { CHARACTERS, GAMES } from "@/lib/constants";
 import Furniture from "./Furniture";
 
 export default function Lobby() {
   const { me, room, send } = useRoom();
-  // useOptimistic: show my new pick instantly, the server confirms a moment later
   const [mine, setMine] = useOptimistic(room.players[me].character);
   const owner = (id) => Object.values(room.players).find((p) => p.character === id)?.id;
 
@@ -16,6 +15,9 @@ export default function Lobby() {
       await send({ type: "pick", character: id });
     });
 
+  const myReady = room.players[me].ready;
+  const active = Object.values(room.players).filter((p) => !p.idle);
+  const readyCount = active.filter((p) => p.ready).length;
   return (
     <div className="space-y-6">
       <div>
@@ -40,7 +42,25 @@ export default function Lobby() {
           );
         })}
       </div>
-      <button onClick={() => send({ type: "start" })} className="btn-blue">Start the games</button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={() => send({ type: "ready" })} className={myReady ? "btn-line" : "btn-blue"}>
+          {myReady ? "Not ready" : "Ready"}
+        </button>
+        <span className="font-bold text-muted">{readyCount} of {active.length} ready</span>
+      </div>
+
+
+            {/* DEV ONLY: only visible with "npm run dev" */}
+      {process.env.NODE_ENV !== "production" && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-dashed border-line p-3">
+          <span className="text-sm font-bold text-muted">Test one game:</span>
+          {GAMES.map((g) => (
+            <button key={g.id} onClick={() => send({ type: "test", game: g.id })} className="btn-line min-h-8 px-3 text-sm">
+              {g.title}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

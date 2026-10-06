@@ -5,6 +5,7 @@ import { MAX_ROOMS } from "@/lib/constants";
 import { applyAction, isFull, makeCode, newRoom } from "@/lib/room";
 import { openRooms } from "@/lib/openRooms";
 import { deleteRoom, getRoom, saveRoom, STORAGE_ERROR, storageReady } from "@/lib/store";
+import { getExtras } from "@/lib/extras";
 
 export async function createRoom() {
   if (!storageReady) return { error: STORAGE_ERROR };
@@ -18,7 +19,7 @@ export async function createRoom() {
 async function leave(code, playerId) {
   const room = code && (await getRoom(code));
   if (!room || !playerId) return;
-  applyAction(room, playerId, { type: "leave" }, Date.now());
+  applyAction(room, playerId, { type: "leave" }, Date.now(), await getExtras());
   await (Object.keys(room.players).length ? saveRoom(room) : deleteRoom(code)); // empty room = gone
 }
 
