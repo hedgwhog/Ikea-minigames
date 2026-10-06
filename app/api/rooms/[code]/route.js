@@ -2,8 +2,7 @@
 //   GET  /api/rooms/ABCD -> how does the room look now? (browsers ask this every second)
 //   POST /api/rooms/ABCD -> "I did something" { playerId, type, ... }
 import { USES_LIVE } from "@/lib/games";
-import { getProducts } from "@/lib/products";
-import { getRates } from "@/lib/rates";
+import { getExtras } from "@/lib/extras";
 import { applyAction, dropIdle, isAbandoned, publicRoom, tickRoom } from "@/lib/room";
 import { deleteRoom, getLive, getRoom, saveRoom, setLive, STORAGE_ERROR, storageReady } from "@/lib/store";
 
@@ -12,9 +11,9 @@ const json = (data, status = 200) => Response.json(data, { status });
 
 async function handle(code, body) {
   if (!storageReady) return json({ error: STORAGE_ERROR }, 503);
-  const needsProducts = body?.type === "start" || body?.type === "next";
-  // wait for the APIs BEFORE loading the room, so nothing changes the room in between
-  const [products, rates] = needsProducts ? await Promise.all([getProducts(), getRates()]) : [];
+    // A game can start from "ready", "leave" or someone going idle, so always have the products ready.
+  // Loaded BEFORE the room, so nothing changes the room in between.
+  const extras = await getExtras();
 
   const room = await getRoom(code.toUpperCase());
   if (!room) return json({ error: "This room doesn't exist anymore." }, 404);
@@ -25,7 +24,7 @@ async function handle(code, body) {
   if (body?.type === "live") await setLive(liveKey, body.playerId, { ...body.live, at: now });
   const live = room.phase === "playing" && USES_LIVE.has(room.game.type) ? await getLive(liveKey) : {};
 
-  const idleRemoved = dropIdle(room, now);
+  const idleRemoved = dropIdle(room, now, extras);
   let changed = tickRoom(room, now, live) || idleRemoved;
   if (isAbandoned(room, now)) {
     await deleteRoom(room.code);
@@ -33,7 +32,7 @@ async function handle(code, body) {
   }
   if (body && body.type !== "live") {
     if (room.players[body.playerId]) room.players[body.playerId].seenAt = now; // a real action = still here
-    const error = applyAction(room, body.playerId, body, now, { products, rates });
+    const error = applyAction(room, body.playerId, body, now, extras);
     if (error) return json({ error }, 400);
     tickRoom(room, now, live);
     changed = true;
