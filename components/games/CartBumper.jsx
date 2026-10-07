@@ -43,8 +43,15 @@ export default function CartBumper() {
     stunUntil: 0, shakeUntil: 0, bumps: [], bumpN: 0, lastHit: {}, seen: {},
   });
 
+    // Other carts: `shown` = where we DRAW them, smoothed every frame (see the game loop).
+  // Refs, so updates don't restart the game loop.
+  const shown = useRef({});
+  const liveRef = useRef(live);
+  liveRef.current = live;
   const others = useRef({});
-  others.current = Object.fromEntries(game.alive.filter((id) => id !== me && live[id]).map((id) => [id, live[id]]));
+  others.current = Object.fromEntries(
+    game.alive.filter((id) => id !== me && live[id]).map((id) => [id, shown.current[id] ?? live[id]]),
+  );
 
   useEffect(() => {
     let last = performance.now();
@@ -54,6 +61,18 @@ export default function CartBumper() {
       last = time;
       const c = s.current;
       const t = now();
+      // Smooth the other carts: guess where they are NOW (last position + speed x time since),
+      // then glide there. This hides slow or uneven updates from the server.
+      for (const [id, l] of Object.entries(liveRef.current)) {
+        if (id === me) continue;
+        const age = Math.min(0.3, Math.max(0, (t - l.at) / 1000)); // seconds, max 0.3s of guessing
+        const target = { x: l.x + (l.vx ?? 0) * age, y: l.y + (l.vy ?? 0) * age };
+        const d = (shown.current[id] ??= { ...target, a: l.a ?? 0 });
+        const k = Math.min(1, dt * 12); // how fast we glide to the target
+        d.x += (target.x - d.x) * k;
+        d.y += (target.y - d.y) * k;
+        d.a += Math.atan2(Math.sin((l.a ?? 0) - d.a), Math.cos((l.a ?? 0) - d.a)) * k; // turn the short way round
+      }
       if (alive && t >= game.startAt) {
         const k = keys.current;
         const gas = k.has("w") || k.has("arrowup");
@@ -104,10 +123,10 @@ export default function CartBumper() {
           if (stunned || fwd < MIN_BUMP || t - (c.lastHit[id] ?? 0) < 600) continue; 
           if (Math.hypot(o.x - front.x, o.y - front.y) > CART_R + BUMP_R) continue;
           c.lastHit[id] = t;
-          const force = Math.round(Math.min(MAX_KNOCK, fwd * (1 + fwd / 350) * KNOCK * (demo ? 1.5 : 1)));
+          const force = Math.round(Math.min(MAX_KNOCK, fwd * (1 + fwd / 350) * KNOCK));
           const away = unit(o.x - c.x, o.y - c.y);
           const dir = unit(hx * 0.6 + away.x * 0.4, hy * 0.6 + away.y * 0.4);
-          c.bumps = [...c.bumps.filter((b) => t - b.at < 1000), { n: ++c.bumpN, target: id, dx: dir.x, dy: dir.y, force, demo, at: t }];
+          c.bumps = [...c.bumps.filter((b) => t - b.at < 1000), { n: ++c.bumpN, target: id, dx: dir.x, dy: dir.y, force, at: t }];
           c.vx *= 0.35;
           c.vy *= 0.35;
         }
@@ -133,8 +152,8 @@ export default function CartBumper() {
         if (!alive || now() - b.at > 1500) continue;
         c.vx += b.dx * b.force;
         c.vy += b.dy * b.force;
-        c.stunUntil = now() + STUN_MS * (b.demo ? 1.6 : 1);
-        c.spin = (Math.random() - 0.5) * (b.demo ? 30 : 14);
+        c.stunUntil = now() + STUN_MS;
+        c.spin = (Math.random() - 0.5) * 14;
         c.shakeUntil = now() + 400;
       }
     }
@@ -142,7 +161,10 @@ export default function CartBumper() {
 
   useInterval(() => {
     const c = s.current;
-    sendLive({ x: Math.round(c.x), y: Math.round(c.y), a: +c.a.toFixed(2), b: c.boosting, storm: +c.storm.toFixed(2), bumps: c.bumps });
+    sendLive({
+      x: Math.round(c.x), y: Math.round(c.y), vx: Math.round(c.vx), vy: Math.round(c.vy),
+      a: +c.a.toFixed(2), b: c.boosting, storm: +c.storm.toFixed(2), bumps: c.bumps,
+    });
   }, 100);
 
   const view = useRef(null);
@@ -162,9 +184,15 @@ export default function CartBumper() {
   const camY = Math.max(0, Math.min(MAP_H * scale - vh, focus.y * scale - vh / 2));
   const shake = t < c.shakeUntil ? `${Math.random() * 12 - 6}px ${Math.random() * 12 - 6}px` : "0 0";
 
-  const carts = game.playerIds.map((id) => ({ id, ...(id === me ? { x: c.x, y: c.y, a: c.a, b: c.boosting } : live[id] ?? { ...game.spawns[id], a: 0 }) }));
+  const carts = game.playerIds.map((id) => ({
+    id,
+    ...(id === me
+      ? { x: c.x, y: c.y, a: c.a, b: c.boosting }
+      : shown.current[id] ? { ...shown.current[id], b: live[id]?.b } : live[id] ?? { ...game.spawns[id], a: 0 }),
+  }));
+
   const byId = Object.fromEntries(carts.map((p) => [p.id, p]));
-  // "BUMP!" / "DEMOLISHED!" pop-ups, visible for everyone
+  // "BUMP!"
   const hits = [...c.bumps, ...Object.entries(live).filter(([id]) => id !== me).flatMap(([, l]) => l.bumps ?? [])]
     .filter((b) => t - b.at < 800 && byId[b.target]);
   const walls = useMemo(
@@ -213,9 +241,9 @@ export default function CartBumper() {
           ))}
 
           {hits.map((b) => (
-            <span key={`${b.target}${b.at}`} className={`pointer-events-none absolute z-20 -translate-x-1/2 font-black ${b.demo ? "text-2xl text-red" : "text-lg text-ink"}`}
+              <span key={`${b.target}${b.at}`} className="pointer-events-none absolute z-20 -translate-x-1/2 text-lg font-black text-ink"
               style={{ left: byId[b.target].x * scale, top: byId[b.target].y * scale - 50 - ((t - b.at) / 800) * 30, opacity: 1 - (t - b.at) / 800 }}>
-              {b.demo ? "DEMOLISHED!" : "BUMP!"}
+              BUMP!
             </span>
           ))}
         </div>
@@ -233,7 +261,7 @@ export default function CartBumper() {
 function Cart({ p, scale, mine, out, character, name }) {
   const size = Math.max(24, CART_R * 2.6 * scale); 
   return (
-    <div className={`absolute ${mine ? "z-10" : "transition-[left,top] duration-100 ease-linear"} ${out ? "opacity-30 grayscale" : ""}`}
+    <div className={`absolute ${mine ? "z-10" : ""} ${out ? "opacity-30 grayscale" : ""}`}
       style={{ left: p.x * scale, top: p.y * scale, width: size, height: size, translate: "-50% -50%" }}>
       <svg viewBox="0 0 80 56" className="absolute inset-0 h-full w-full overflow-visible" style={{ rotate: `${p.a ?? 0}rad` }}>
         {p.b && <ellipse cx="-10" cy="28" rx="20" ry="11" fill="#ffdb00" opacity=".85" className="animate-pulse" />}
