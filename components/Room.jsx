@@ -13,8 +13,10 @@ import HideAndSeek from "./games/HideAndSeek";
 import MeatballCatch from "./games/MeatballCatch";
 import PriceGuess from "./games/PriceGuess";
 import SofaSays from "./games/SofaSays";
+import TreehouseSniper from "./games/TreehouseSniper";
+import FlatPackRunner from "./games/FlatPackRunner";
 
-const SCREENS = { catch: MeatballCatch, price: PriceGuess, sofa: SofaSays, bumper: CartBumper, hide: HideAndSeek };
+const SCREENS = { catch: MeatballCatch, price: PriceGuess, sofa: SofaSays, bumper: CartBumper, hide: HideAndSeek, sniper: TreehouseSniper, runner: FlatPackRunner };
 
 export default function Room() {
   const { code, me, room, error, notice } = useRoom();

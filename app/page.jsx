@@ -16,7 +16,7 @@ export default async function Home({ searchParams }) {
       <HomeLamp />
       <section className="space-y-5 pt-44 sm:pt-0">
         <h1 className="text-5xl font-black leading-none text-blue sm:text-7xl [[data-theme=dark]_&]:text-yellow">
-          Five games.
+          Seven games.
           <br />
           One tiny IKEA.
         </h1>
