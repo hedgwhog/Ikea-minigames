@@ -23,6 +23,7 @@ export function RoomProvider({ code, children }) {
   const previous = useRef(null); // the players at the last update, to spot changes
   const sendRef = useRef(null);
   const noticeTimer = useRef(null);
+  const pauseUntil = useRef(0); // after a server error: wait a moment before sending live data again
 
   const url = `/api/rooms/${code}`;
 
@@ -51,6 +52,7 @@ export function RoomProvider({ code, children }) {
   const handle = useCallback(
     async (res, fatal) => {
       const data = await res.json();
+      if (res.status >= 500) pauseUntil.current = Date.now() + 2000;
       if (res.ok) {
         offset.current = data.serverNow - Date.now();
         const mine = data.room.players[getPlayerId()];
@@ -81,7 +83,7 @@ export function RoomProvider({ code, children }) {
   // Positions etc. Skipped when the previous one is still on its way (no traffic jam).
   const sendLive = useCallback(
     async (live) => {
-      if (busy.current) return;
+      if (busy.current || Date.now() < pauseUntil.current) return;
       busy.current = true;
       await send({ type: "live", live });
       busy.current = false;
