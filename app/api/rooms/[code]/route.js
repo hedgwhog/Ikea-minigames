@@ -43,11 +43,22 @@ async function handle(code, body) {
 
 export async function GET(request, { params }) {
   const { code } = await params;
-  return handle(code, null);
+  try {
+    return await handle(code, null);
+  } catch (e) {
+    console.error("Room error:", e); // the full error, in the terminal
+    return json({ error: `Server error: ${e.message}` }, 500);
+  }
 }
 
 export async function POST(request, { params }) {
   const { code } = await params;
   const body = await request.json().catch(() => null);
-  return body?.playerId ? handle(code, body) : json({ error: "Bad request" }, 400);
+  if (!body?.playerId) return json({ error: "Bad request" }, 400);
+  try {
+    return await handle(code, body);
+  } catch (e) {
+    console.error("Room error:", e);
+    return json({ error: `Server error: ${e.message}` }, 500);
+  }
 }
